@@ -6,7 +6,7 @@
 /*   By: mdahani <mdahani@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/09/04 11:04:08 by mdahani           #+#    #+#             */
-/*   Updated: 2025/09/04 16:19:53 by mdahani          ###   ########.fr       */
+/*   Updated: 2025/09/04 18:11:45 by mdahani          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -26,6 +26,9 @@ typedef struct s_mlx_data
     int     columns;
     int     rows;
     char    **map;
+    char    player;
+    int     px;
+    int     py;
 }			t_mlx_data;
 
 // map
@@ -45,6 +48,22 @@ char *map[] = {
         NULL
     };
 
+static char **copy_map(char **map)
+{
+    int i = 0;
+    char **new_map;
+    
+    while (map[i])
+        i++;
+    new_map = malloc(sizeof(char *) * (i + 1));
+    if (!new_map)
+        return NULL;
+    for (int j = 0; j < i; j++)
+        new_map[j] = strdup(map[j]);
+    new_map[i] = NULL;
+    return (new_map);
+}
+
 // calc the rows and columns
 static void calc_rows_columns(t_mlx_data *data)
 {
@@ -61,30 +80,48 @@ static int	close_window()
 }
 
 
-static int handle_key(int keycode)
+static int handle_key(int keycode, void *param)
 {
+    t_mlx_data *data = (t_mlx_data *) param;
+
     if (keycode == XK_Escape) // ESC key
         close_window();
     
     // key up arrow
     if (keycode == XK_Up)
     {
-        printf("UP\n");
+        if (data->map[data->px - 1][data->py] == '1')
+            return (1);
+        data->map[data->px - 1][data->py] = data->player;
+        data->map[data->px][data->py] = '0';
+        data->px -= 1;
     }
     // key down arrow
     else if (keycode == XK_Down)
     {
-        printf("DOWN\n");
+       if (data->map[data->px + 1][data->py] == '1')
+            return (1);
+        data->map[data->px + 1][data->py] = data->player;
+        data->map[data->px][data->py] = '0';
+        data->px += 1;
     }
     // key left arrow
     else if (keycode == XK_Left)
     {
-        printf("LEFT\n");
+        if (data->map[data->px][data->py - 1] == '1')
+            return (1);
+        data->map[data->px][data->py - 1] = data->player;
+        data->map[data->px][data->py] = '0';
+        data->py -= 1;
     }
     // key right arrow
     else if (keycode == XK_Right)
     {
-        printf("RIGHT\n");
+       if (data->map[data->px][data->py + 1] == '1')
+            return (1);
+        data->map[data->px][data->py + 1] = data->player;
+        data->map[data->px][data->py] = '0';
+        data->py += 1;
     }
     return (0);
 }
@@ -114,7 +151,12 @@ static int draw_map(void *param)
             else if (data->map[x][y] == '0')
                 draw_square(data, x, y, 0xFFFFFF);
             else if (data->map[x][y] == 'N')
+            {
+                data->player = data->map[x][y];
+                data->px = x;
+                data->py = y;
                 draw_square(data, x, y, 0x0000FF);
+            }
             else
                 break ;
         }
@@ -127,7 +169,7 @@ int main()
     t_mlx_data data;
 
     // copy the map
-    data.map = map;
+    data.map = copy_map(map);
 
     // add columns and rows
     calc_rows_columns(&data);
@@ -142,7 +184,7 @@ int main()
     mlx_hook(data.window, 17, 0, &close_window, NULL);
         
     // move the player
-    mlx_hook(data.window, 2, 1L<<0, &handle_key, NULL);
+    mlx_hook(data.window, 2, 1L<<0, &handle_key, &data);
 
     // draw the map
     mlx_loop_hook(data.mlx, &draw_map, &data);
