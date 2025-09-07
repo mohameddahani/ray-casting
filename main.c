@@ -6,7 +6,7 @@
 /*   By: mdahani <mdahani@student.42.fr>            +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2025/09/04 11:04:08 by mdahani           #+#    #+#             */
-/*   Updated: 2025/09/07 11:17:37 by mdahani          ###   ########.fr       */
+/*   Updated: 2025/09/07 15:29:15 by mdahani          ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -18,10 +18,11 @@
 #include <X11/keysym.h>
 #include <math.h>
 
-#define TILE_SIZE 30
+#define TILE_SIZE 32
 #define PLAYER_SIZE 10
-// #define PI 3.1415926535
-// #define NUM_RAYS 60
+#define PI 3.1415926535
+#define NUM_RAYS 60
+#define ROT_SPEED 0.1
 
 typedef struct s_mlx_data
 {
@@ -37,9 +38,9 @@ typedef struct s_mlx_data
     double   old_py;
     // double   pdx;
     // double   pdy;
-    // double   pa;
+    double   pa;
     // double  dir;
-    // double  fov;
+    double  fov;
 }			t_mlx_data;
 
 // map
@@ -50,7 +51,7 @@ char *map[] = {
         "10111111000011100001111000001",
         "10001000000000000000001111111",
         "10000000000000000000000000001",
-        "10000000000000E00000000000001",
+        "10000000000000W00000000000001",
         "10000000000000000000000000001",
         "10000000011111000000011110001",
         "10111000000011100000000000001",
@@ -99,6 +100,18 @@ void find_Player(t_mlx_data *data)
                 data->old_px = x;
                 data->old_py = y;
                 data->map[x][y] = '0';
+                
+                // set the view of player
+                if (data->player == 'N')
+                    data->pa = -PI / 2;
+                else if (data->player == 'S')
+                    data->pa = PI / 2;
+                else if (data->player == 'W')
+                    data->pa = PI;
+                else if (data->player == 'E') 
+                    data->pa = 0;
+                else
+                    return ;
             }
         }
     }
@@ -121,6 +134,29 @@ static void draw_square(t_mlx_data *data, int x, int y, int color)
     }
 }
 
+static void draw_rays(t_mlx_data *data)
+{
+    int px_pixel = data->py * TILE_SIZE + TILE_SIZE / 2;
+    int py_pixel = data->px * TILE_SIZE + TILE_SIZE / 2;
+
+    
+    for (int i = 0; i < 50; i++)
+    {
+        int x = px_pixel + i * cos(data->pa);
+        int y = py_pixel + i * sin(data->pa);
+        mlx_pixel_put(data->mlx, data->window, x, y, 0xFF0000);
+    }
+}
+
+static void erase_rays(t_mlx_data *data)
+{
+    int start_x = data->old_px * TILE_SIZE + TILE_SIZE / 2;
+    int start_y = data->old_py * TILE_SIZE + TILE_SIZE / 2;
+
+    for (int i = 0; i < TILE_SIZE * 5; i++)
+        mlx_pixel_put(data->mlx, data->window, start_y + i, start_x, 0xFFFFFF);
+}
+
 static void draw_player(t_mlx_data *data)
 {
     int start_x = data->px * TILE_SIZE + (TILE_SIZE - PLAYER_SIZE) / 2;
@@ -137,9 +173,15 @@ static void update_position_player(t_mlx_data *data)
 {
     // draw the old position of player like floor
     draw_square(data, data->old_px, data->old_py, 0xFFFFFF);
+
+    // remove the old rays
+    erase_rays(data);
     
     // draw the new position of player
     draw_player(data);
+
+    // draw rays of player
+    draw_rays(data);
 
     // copy new position of player to old
     data->old_px = data->px;
@@ -174,17 +216,25 @@ static int handle_key(int keycode, void *param)
     // key left arrow
     else if (keycode == XK_a)
     {
+        data->pa -= ROT_SPEED;
+        if (data->pa < 0)
+            data->pa += 2 * PI;
+        
         if (data->map[(int)data->px][(int)data->py - 1] == '1')
             return (1);
-        data->py -= 1;
+        // data->py -= 1;
         update_position_player(data);
     }
     // key right arrow
     else if (keycode == XK_d)
     {
+        data->pa += ROT_SPEED;
+        if (data->pa > 2 * PI)
+            data->pa -= 2 * PI;
+        
        if (data->map[(int)data->px][(int)data->py + 1] == '1')
             return (1);
-        data->py += 1;
+        // data->py += 1;
         update_position_player(data);
     }
     return (0);
@@ -199,7 +249,7 @@ static void draw_map(t_mlx_data *data)
         for (int y = 0; data->map[x][y]; y++)
         {
             if (data->map[x][y] == '1')
-                draw_square(data, x, y, 0xFF0000);
+                draw_square(data, x, y, 0x000000);
             else if (data->map[x][y] == '0')
                 draw_square(data, x, y, 0xFFFFFF);
             else
@@ -208,6 +258,7 @@ static void draw_map(t_mlx_data *data)
     }
     // draw player
     draw_player(data);
+    draw_rays(data);
 }
 
 int main()
@@ -224,7 +275,7 @@ int main()
     find_Player(&data);
     
     // init Field of View of player
-    // data.fov = PI / 3 ; // 60 degrees
+    data.fov = PI / 3 ; // 60 degrees
 
     data.mlx = mlx_init();
     if (!data.mlx)
